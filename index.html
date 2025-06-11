@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>项目群作战地图 - DEMO (科技蓝风格)</title>
+    <title>项目群作战地图 - V3.1 (两行日期优化)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -16,7 +16,7 @@
         .milestone-diamond {
             width: 14px;
             height: 14px;
-            transform: translateY(-50%) rotate(45deg);
+            transform: translateY(-50%) translateX(-50%) rotate(45deg);
             position: absolute;
             top: 50%;
             z-index: 20;
@@ -25,7 +25,7 @@
             border: 1px solid rgba(0,0,0,0.5);
         }
         .milestone-diamond:hover {
-            transform: translateY(-50%) rotate(45deg) scale(1.4);
+            transform: translateY(-50%) translateX(-50%) rotate(45deg) scale(1.4);
         }
         .milestone-tooltip {
             visibility: hidden;
@@ -112,18 +112,20 @@
     <div class="max-w-screen-2xl mx-auto">
         <header class="text-center mb-6">
             <h1 class="text-2xl md:text-3xl font-bold text-white tracking-wider">银行科技建设 — 项目群作战地图</h1>
-            <p class="text-sm text-slate-400 mt-1">DEMO (基于V2.1需求文档 - 科技蓝风格)</p>
+            <p class="text-sm text-slate-400 mt-1">DEMO V3.1 (两行日期优化)</p>
         </header>
 
         <div id="map-wrapper" class="relative">
-            <div id="timeline-header" class="flex items-center bg-slate-900/30 p-2 rounded-t-lg ml-[calc(100%*1/12)] w-[calc(100%*6/12-1rem)]">
+             <div id="timeline-header" class="flex items-center bg-slate-900/30 rounded-t-lg ml-[calc(100%/12)] w-[calc(100%*6/12)]">
                 <!-- JS Generated Months -->
             </div>
     
             <div id="war-map-container" class="space-y-2">
                 <!-- JS Generated Project Group Rows -->
             </div>
-             <div id="global-date-line-container"></div>
+             <div id="global-date-line-container" class="absolute top-0 bottom-0 ml-[calc(100%/12)] w-[calc(100%*6/12)] pointer-events-none">
+                <!-- JS Generated Date Line -->
+             </div>
         </div>
     </div>
     
@@ -136,15 +138,10 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // --- CONFIGURATION ---
             const TODAY = new Date('2025-06-11');
-            const YEAR = TODAY.getFullYear();
-            const MONTHS = Array.from({ length: 12 }, (_, i) => `${i + 1}月`);
-            const dayOfYear = (date) => (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getFullYear(), 0, 0)) / (24 * 60 * 60 * 1000);
-            const daysInYear = (year) => (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
-            const toPercentage = (date) => dayOfYear(date) / daysInYear(date.getFullYear()) * 100;
-            const dateDiffInDays = (d1, d2) => Math.round((d1 - d2) / (1000 * 60 * 60 * 24));
 
-            // --- STATIC MOCK DATA ---
+            // --- STATIC MOCK DATA (UPDATED) ---
             const mockData = [
                 {
                     group_id: 1, group_name: '核心银行群', plan_start: new Date('2025-02-01'), plan_end: new Date('2025-11-30'), group_risk: 'low',
@@ -175,9 +172,9 @@
                     ]
                 },
                 {
-                    group_id: 5, group_name: '数据中台群', plan_start: new Date('2025-01-10'), plan_end: new Date('2025-12-31'), group_risk: 'medium',
+                    group_id: 5, group_name: '数据中台群', plan_start: new Date('2025-01-10'), plan_end: new Date('2026-03-15'), group_risk: 'medium', 
                     projects: [
-                        { project_id: 501, manager: '陈一', project_name: '数据湖', percent_complete: 30, risk_level: 'medium', key_flag: true, budget_planned: 500, budget_spent: 150, issues: [{ status: 'Open' }], milestones: [ { ms_name: 'ETL管道开发', ms_plan_date: new Date('2025-05-20'), status: '已完成' } ] },
+                        { project_id: 501, manager: '陈一', project_name: '数据湖', percent_complete: 30, risk_level: 'medium', key_flag: true, budget_planned: 500, budget_spent: 150, issues: [{ status: 'Open' }], milestones: [ { ms_name: 'ETL管道开发', ms_plan_date: new Date('2025-05-20'), status: '已完成' }, { ms_name: '数据服务总线', ms_plan_date: new Date('2026-01-20'), status: '计划中' } ] },
                         { project_id: 502, manager: '卫二', project_name: '数据仓库', percent_complete: 25, risk_level: 'low', key_flag: true, budget_planned: 450, budget_spent: 110, issues: [], milestones: [ { ms_name: '主数据管理', ms_plan_date: new Date('2025-10-10'), status: '计划中' } ] }
                     ]
                 },
@@ -227,31 +224,86 @@
                     group_id: 12, group_name: '基础架构群', plan_start: new Date('2025-02-01'), plan_end: new Date('2025-12-31'), group_risk: 'low',
                     projects: [
                         { project_id: 1201, manager: '孔五', project_name: '私有云', percent_complete: 48, risk_level: 'low', key_flag: true, budget_planned: 400, budget_spent: 180, issues: [], milestones: [ { ms_name: 'K8s集群升级', ms_plan_date: new Date('2025-05-18'), status: '已完成' } ] },
-                        { project_id: 1202, manager: '曹六', project_name: '容器化平台', percent_complete: 45, risk_level: 'low', key_flag: true, budget_planned: 350, budget_spent: 150, issues: [], milestones: [ { ms_name: '服务网格Istio', ms_plan_date: new Date('2025-09-01'), status: '计划中' } ] }
+                        { project_id: 1202, manager: '曹六', project_name: '容器化平台', percent_complete: 45, risk_level: 'low', key_flag: true, budget_planned: 350, budget_spent: 150, issues: [], milestones: [ { ms_name: '服务网格Istio', ms_plan_date: new Date('2025-09-01'), status: '计划中' } ] },
+                        { project_id: 1203, manager: '严七', project_name: '分布式数据库', percent_complete: 30, risk_level: 'medium', key_flag: true, budget_planned: 280, budget_spent: 90, issues: [{status: 'Open'}], milestones: [ { ms_name: '选型POC', ms_plan_date: new Date('2025-07-20'), status: '计划中' } ] }
                     ]
                 },
             ];
 
-            const mapWrapper = document.getElementById('map-wrapper');
+            // --- DATE & TIMELINE CALCULATION LOGIC ---
+            const earliestDate = mockData.reduce((min, p) => p.plan_start < min ? p.plan_start : min, new Date());
+            const timelineStart = new Date(earliestDate.getFullYear(), 0, 1);
+            const timelineEnd = new Date('2026-06-30'); 
+
+            const dateDiffInDays = (d1, d2) => {
+                const utc1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate());
+                const utc2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
+                return (utc1 - utc2) / (1000 * 60 * 60 * 24);
+            };
+
+            const totalTimelineDays = dateDiffInDays(timelineEnd, timelineStart);
+
+            const isSingleYear = timelineStart.getFullYear() === timelineEnd.getFullYear();
+
+            const toPercentage = (date) => {
+                if (!date || date < timelineStart) return 0;
+                if (date > timelineEnd) return 100;
+                return dateDiffInDays(date, timelineStart) / totalTimelineDays * 100;
+            };
+
+            // --- DOM Elements ---
             const warMapContainer = document.getElementById('war-map-container');
             const timelineHeader = document.getElementById('timeline-header');
+            const globalDateLineContainer = document.getElementById('global-date-line-container');
             const drawer = document.getElementById('detail-drawer');
             const drawerContent = document.getElementById('drawer-content');
             const closeDrawerBtn = document.getElementById('close-drawer');
 
+            // --- RENDER FUNCTIONS ---
+            function renderTimelineHeader() {
+                let headerHtml = '';
+                let currentDate = new Date(timelineStart);
+                while (currentDate <= timelineEnd) {
+                    const year = currentDate.getFullYear();
+                    const month = currentDate.getMonth(); // 0-11
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    const monthWidth = (daysInMonth / totalTimelineDays) * 100;
+                    
+                    let monthLabel;
+                    if (isSingleYear) {
+                         monthLabel = `${month + 1}月`;
+                    } else {
+                        const isFirstMonthOfTimeline = (year === timelineStart.getFullYear() && month === timelineStart.getMonth());
+                        const isLastMonthOfTimeline = (year === timelineEnd.getFullYear() && month === timelineEnd.getMonth());
+                        
+                        if ((month === 0 && !isFirstMonthOfTimeline) || (month === 11 && !isLastMonthOfTimeline)) {
+                             monthLabel = `${year.toString().slice(-2)}年<br>${month + 1}月`;
+                        } else {
+                            monthLabel = `${month + 1}月`;
+                        }
+                    }
+
+                    headerHtml += `<div class="flex-shrink-0 flex flex-col justify-center text-center text-xs text-slate-400 border-l border-slate-700/50 px-1 leading-tight" style="width: ${monthWidth}%">${monthLabel}</div>`;
+                    currentDate.setMonth(month + 1);
+                }
+                timelineHeader.innerHTML = headerHtml;
+            }
+
             function render(data) {
-                if (!data || data.length === 0) {
+                if (!data || !data.length) {
                     console.error("No data to render.");
                     return;
                 }
                 
-                timelineHeader.innerHTML = MONTHS.map(month => `<div class="flex-1 text-center text-xs text-slate-400">${month}</div>`).join('');
+                renderTimelineHeader();
                 
                 warMapContainer.innerHTML = '';
                 data.forEach((group, index) => {
                     const startPercent = toPercentage(group.plan_start);
                     const endPercent = toPercentage(group.plan_end);
-                    const groupProgress = group.projects.map(p => p.percent_complete).reduce((a, b) => a + b, 0) / group.projects.length;
+                    const widthPercent = endPercent - startPercent;
+
+                    const groupProgress = group.projects.length > 0 ? group.projects.map(p => p.percent_complete).reduce((a, b) => a + b, 0) / group.projects.length : 0;
                     
                     const totalPlanDuration = dateDiffInDays(group.plan_end, group.plan_start) || 1;
                     const elapsedDuration = dateDiffInDays(TODAY, group.plan_start);
@@ -264,29 +316,38 @@
                         <div class="group-row bg-slate-800/30 border border-slate-700/50 rounded-lg p-3 flex items-center space-x-4 cursor-pointer relative" data-group-index="${index}">
                             <div class="w-1/12 truncate font-bold text-sm pl-2 text-slate-200" title="${group.group_name}">${group.group_name}</div>
                             
-                            <div class="w-6/12 relative h-6">
-                                <div class="absolute h-full rounded bg-slate-700" style="left:${startPercent}%; right:${100-endPercent}%;">
-                                    <div class="relative h-full ${progressColorClass} rounded" style="width: ${groupProgress}%;"></div>
-                                </div>
-                                <div class="milestones-container absolute w-full h-full top-0 left-0">
-                                    ${group.projects.flatMap(p => p.milestones).map(ms => {
-                                        const msPlanPercent = toPercentage(ms.ms_plan_date);
-                                        if (msPlanPercent < startPercent || msPlanPercent > endPercent) return '';
-                                        let colorClass = 'bg-slate-500'; 
-                                        if (ms.status === '已完成') colorClass = 'bg-emerald-400';
-                                        if (ms.status === '延迟') colorClass = 'bg-red-500';
-                                        return `<div class="milestone-diamond ${colorClass}" style="left: ${msPlanPercent}%;"><div class="milestone-tooltip"><b>${ms.ms_name}</b><br>状态: ${ms.status}<br>计划: ${ms.ms_plan_date.toLocaleDateString('zh-CN')}</div></div>`;
-                                    }).join('')}
+                            <div class="w-6/12 relative h-6 rounded">
+                                <!-- The Gantt bar. Positioned absolutely. It IS the positioning context for milestones. -->
+                                <div class="absolute h-full rounded bg-slate-700" style="left: ${startPercent}%; width: ${widthPercent}%;">
+                                    <!-- Progress Fill -->
+                                    <div class="h-full ${progressColorClass} rounded relative" style="width: ${groupProgress}%;"></div>
+                                    
+                                    <!-- Milestones Container (positioned absolutely within the Gantt bar) -->
+                                    <div class="absolute top-0 left-0 w-full h-full">
+                                        ${group.projects.flatMap(p => p.milestones).map(ms => {
+                                            if (ms.ms_plan_date < group.plan_start || ms.ms_plan_date > group.plan_end) {
+                                                return ''; // Don't render milestones outside the group's plan
+                                            }
+                                            const totalGroupDays = dateDiffInDays(group.plan_end, group.plan_start) || 1;
+                                            const daysFromGroupStart = dateDiffInDays(ms.ms_plan_date, group.plan_start);
+                                            const msRelativePercent = (daysFromGroupStart / totalGroupDays) * 100;
+
+                                            let colorClass = 'bg-slate-500'; 
+                                            if (ms.status === '已完成') colorClass = 'bg-emerald-400';
+                                            if (ms.status === '延迟') colorClass = 'bg-red-500';
+                                            return `<div class="milestone-diamond ${colorClass}" style="left: ${msRelativePercent}%;"><div class="milestone-tooltip"><b>${ms.ms_name}</b><br>状态: ${ms.status}<br>计划: ${ms.ms_plan_date.toLocaleDateString('zh-CN')}</div></div>`;
+                                        }).join('')}
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="w-5/12 flex items-center justify-start space-x-2">
-                                ${group.projects.filter(p => p.key_flag).map((p, pIndex) => {
+                            <div class="w-5/12 flex flex-wrap items-center justify-start gap-2">
+                                ${group.projects.filter(p => p.key_flag).map((p) => {
                                     const openIssues = p.issues.filter(iss => iss.status === 'Open').length;
                                     const projectRiskColor = riskColorMapping[p.risk_level];
                                     const budgetExceeded = p.budget_spent > p.budget_planned;
                                     return `
-                                    <div class="key-project-card bg-slate-900/50 p-2 rounded-md w-36 flex-shrink-0 transition hover:bg-slate-900/80 cursor-pointer relative" data-group-index="${index}" data-project-index="${pIndex}">
+                                    <div class="key-project-card bg-slate-900/50 p-2 rounded-md w-36 flex-shrink-0 transition hover:bg-slate-900/80 cursor-pointer relative" data-group-index="${index}" data-project-id="${p.project_id}">
                                         <div class="flex justify-between items-start">
                                             <p class="text-xs font-semibold truncate flex-1" title="${p.project_name}">${p.project_name}</p>
                                             ${openIssues > 0 ? `<span class="text-xs bg-red-600 text-white rounded-full px-1.5 py-0.5 ml-1">${openIssues}</span>` : ''}
@@ -306,7 +367,7 @@
                                                 <dt>项目:</dt><dd>${p.project_name}</dd>
                                                 <dt>经理:</dt><dd>${p.manager}</dd>
                                                 <dt>风险:</dt><dd class="text-${projectRiskColor}-400 font-bold">${p.risk_level.toUpperCase()}</dd>
-                                                <dt>预算:</dt><dd>${p.budget_spent} / ${p.budget_planned} (千元)</dd>
+                                                <dt>预算:</dt><dd>${p.budget_spent} / ${p.budget_planned} (万元)</dd>
                                                 <dt>问题:</dt><dd>${openIssues} 未关闭</dd>
                                             </dl>
                                         </div>
@@ -327,31 +388,33 @@
                 });
 
                 const todayPercentage = toPercentage(TODAY);
-                const timelineWidthPercent = (100 / 12) * 6;
-                const leftOffsetPercent = 100 / 12;
-                const dateLinePosition = leftOffsetPercent + (timelineWidthPercent * todayPercentage / 100);
-                
-                document.getElementById('global-date-line-container').innerHTML = `<div class="current-date-line" style="left: calc(${dateLinePosition}% - 0.5rem);"></div>`;
+                globalDateLineContainer.innerHTML = `<div class="current-date-line" style="left: ${todayPercentage}%;"></div>`;
             }
 
-            // --- Main Execution ---
-            render(mockData);
-
+            // --- Event Listeners & Main Execution ---
             closeDrawerBtn.addEventListener('click', () => drawer.classList.add('hidden'));
             warMapContainer.addEventListener('click', (e) => {
                 const card = e.target.closest('.key-project-card');
+                const groupRow = e.target.closest('.group-row');
+
                 if (card) {
                     e.stopPropagation();
                     const groupIndex = card.dataset.groupIndex;
-                    const projectIndex = card.dataset.projectIndex;
-                    const project = mockData[groupIndex].projects[projectIndex];
-                    drawerContent.innerHTML = `<h3 class="text-xl font-bold mb-4 text-cyan-300">关键项目详情: ${project.project_name}</h3><p class="text-slate-300">[此处应展示该项目的360度详情视图，包括详细时间轴、KPI指标、风险列表、问题列表等。]</p>`;
-                } else if (e.target.closest('.group-row')) {
-                    const groupIndex = e.target.closest('.group-row').dataset.groupIndex;
+                    const projectId = parseInt(card.dataset.projectId);
+                    const project = mockData[groupIndex].projects.find(p => p.project_id === projectId);
+                    if(project) {
+                        drawerContent.innerHTML = `<h3 class="text-xl font-bold mb-4 text-cyan-300">关键项目详情: ${project.project_name}</h3><p class="text-slate-300">[此处应展示该项目的360度详情视图，包括详细时间轴、KPI指标、风险列表、问题列表等。]</p>`;
+                        drawer.classList.remove('hidden');
+                    }
+                } else if (groupRow) {
+                    const groupIndex = groupRow.dataset.groupIndex;
                     const group = mockData[groupIndex];
                      drawerContent.innerHTML = `<h3 class="text-xl font-bold mb-4 text-cyan-300">项目群详情: ${group.group_name}</h3><p class="text-slate-300">[此处应展示该项目群下所有项目的列表表格，包含更详细的字段。]</p>`;
+                    drawer.classList.remove('hidden');
                 }
             });
+
+            render(mockData);
         });
     </script>
 </body>
