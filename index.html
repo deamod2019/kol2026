@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目群作战地图 - DEMO (科技蓝风格)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1a2e;
+            background-image: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+            color: #e2e8f0;
+        }
+        .milestone-diamond {
+            width: 14px;
+            height: 14px;
+            transform: translateY(-50%) rotate(45deg);
+            position: absolute;
+            top: 50%;
+            z-index: 20;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            border: 1px solid rgba(0,0,0,0.5);
+        }
+        .milestone-diamond:hover {
+            transform: translateY(-50%) rotate(45deg) scale(1.4);
+        }
+        .milestone-tooltip {
+            visibility: hidden;
+            opacity: 0;
+            background-color: #1e293b; /* slate-800 */
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 50; /* Ensure it's on top */
+            bottom: 180%;
+            left: 50%;
+            transform: translateX(-50%) rotate(-45deg);
+            white-space: nowrap;
+            font-size: 12px;
+            transition: opacity 0.3s;
+        }
+        .milestone-diamond:hover .milestone-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        .details-tooltip {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: calc(100% + 8px); /* Position above the parent with a gap */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #0f172a; /* slate-900 */
+            border: 1px solid #06b6d4; /* cyan-500 */
+            color: white;
+            padding: 10px 12px;
+            border-radius: 8px;
+            z-index: 40;
+            width: max-content;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            box-shadow: 0 0 20px rgba(14, 165, 233, 0.3);
+            transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+            pointer-events: none;
+        }
+
+        .group-row:hover > .details-tooltip,
+        .key-project-card:hover > .details-tooltip {
+             visibility: visible;
+             opacity: 1;
+        }
+
+        .group-row:has(.key-project-card:hover) > .details-tooltip,
+        .group-row:has(.milestone-diamond:hover) > .details-tooltip {
+            visibility: hidden;
+            opacity: 0;
+        }
+
+        .details-tooltip-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 12px;
+        }
+        .details-tooltip-grid > dt {
+            font-weight: 600;
+            color: #64748b; /* slate-500 */
+        }
+        .details-tooltip-grid > dd {
+            font-weight: 500;
+            color: #e2e8f0; /* slate-200 */
+        }
+        .current-date-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-image: linear-gradient(to bottom, #22d3ee 50%, transparent 50%); /* cyan-400 */
+            background-size: 100% 10px;
+            opacity: 0.9;
+            z-index: 25;
+            box-shadow: 0 0 10px #06b6d4;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+    <div class="max-w-screen-2xl mx-auto">
+        <header class="text-center mb-6">
+            <h1 class="text-2xl md:text-3xl font-bold text-white tracking-wider">银行科技建设 — 项目群作战地图</h1>
+            <p class="text-sm text-slate-400 mt-1">DEMO (基于V2.1需求文档 - 科技蓝风格)</p>
+        </header>
+
+        <div id="map-wrapper" class="relative">
+            <div id="timeline-header" class="flex items-center bg-slate-900/30 p-2 rounded-t-lg ml-[calc(100%*1/12)] w-[calc(100%*6/12-1rem)]">
+                <!-- JS Generated Months -->
+            </div>
+    
+            <div id="war-map-container" class="space-y-2">
+                <!-- JS Generated Project Group Rows -->
+            </div>
+             <div id="global-date-line-container"></div>
+        </div>
+    </div>
+    
+    <div id="detail-drawer" class="hidden fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-3xl rounded-lg shadow-2xl shadow-cyan-500/10 p-6 relative">
+            <button id="close-drawer" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl">&times;</button>
+            <div id="drawer-content"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const TODAY = new Date('2025-06-11');
+            const YEAR = TODAY.getFullYear();
+            const MONTHS = Array.from({ length: 12 }, (_, i) => `${i + 1}月`);
+            const dayOfYear = (date) => (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getFullYear(), 0, 0)) / (24 * 60 * 60 * 1000);
+            const daysInYear = (year) => (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365;
+            const toPercentage = (date) => dayOfYear(date) / daysInYear(date.getFullYear()) * 100;
+            const dateDiffInDays = (d1, d2) => Math.round((d1 - d2) / (1000 * 60 * 60 * 24));
+
+            // --- STATIC MOCK DATA ---
+            const mockData = [
+                {
+                    group_id: 1, group_name: '核心银行群', plan_start: new Date('2025-02-01'), plan_end: new Date('2025-11-30'), group_risk: 'low',
+                    projects: [
+                        { project_id: 101, manager: '张三', project_name: '存款模块', percent_complete: 55, risk_level: 'low', key_flag: true, budget_planned: 150, budget_spent: 70, issues: [], milestones: [{ ms_name: '核心SIT', ms_plan_date: new Date('2025-05-15'), status: '已完成' }, { ms_name: 'UAT验收', ms_plan_date: new Date('2025-08-20'), status: '计划中' },] },
+                        { project_id: 102, manager: '李四', project_name: '贷款模块', percent_complete: 50, risk_level: 'low', key_flag: true, budget_planned: 160, budget_spent: 75, issues: [], milestones: [{ ms_name: '版本投产', ms_plan_date: new Date('2025-11-15'), status: '计划中' },] }
+                    ]
+                },
+                {
+                    group_id: 2, group_name: '数字化营销群', plan_start: new Date('2025-03-15'), plan_end: new Date('2025-12-20'), group_risk: 'low',
+                    projects: [
+                        { project_id: 201, manager: '王五', project_name: '客户画像', percent_complete: 40, risk_level: 'low', key_flag: true, budget_planned: 200, budget_spent: 85, issues: [{ status: 'Open' }], milestones: [{ ms_name: 'CDP平台上线', ms_plan_date: new Date('2025-06-01'), status: '已完成' }, { ms_name: '智能推荐上线', ms_plan_date: new Date('2025-09-10'), status: '计划中' },] },
+                        { project_id: 202, manager: '赵六', project_name: '营销活动引擎', percent_complete: 35, risk_level: 'low', key_flag: true, budget_planned: 180, budget_spent: 60, issues: [], milestones: [] }
+                    ]
+                },
+                {
+                    group_id: 3, group_name: '智能风控群', plan_start: new Date('2025-01-20'), plan_end: new Date('2025-08-30'), group_risk: 'high',
+                    projects: [
+                        { project_id: 301, manager: '孙七', project_name: '反欺诈引擎', percent_complete: 45, risk_level: 'high', key_flag: true, budget_planned: 250, budget_spent: 180, issues: [{status: 'Open'}, {status: 'Open'}, {status: 'Open'}], milestones: [ { ms_name: '模型验证', ms_plan_date: new Date('2025-04-10'), status: '延迟' } ] },
+                        { project_id: 302, manager: '周八', project_name: '信用评分模型', percent_complete: 40, risk_level: 'high', key_flag: true, budget_planned: 200, budget_spent: 150, issues: [{status: 'Open'}], milestones: [ { ms_name: '冠军挑战者上线', ms_plan_date: new Date('2025-07-15'), status: '计划中' } ] }
+                    ]
+                },
+                {
+                    group_id: 4, group_name: '线上信贷群', plan_start: new Date('2025-04-01'), plan_end: new Date('2025-10-31'), group_risk: 'medium',
+                     projects: [
+                        { project_id: 401, manager: '吴九', project_name: '个人信贷审批', percent_complete: 25, risk_level: 'low', key_flag: true, budget_planned: 120, budget_spent: 30, issues: [], milestones: [ { ms_name: '自动化审批准则', ms_plan_date: new Date('2025-07-01'), status: '计划中' } ] },
+                        { project_id: 402, manager: '郑十', project_name: '企业信贷流转', percent_complete: 20, risk_level: 'medium', key_flag: true, budget_planned: 150, budget_spent: 35, issues: [{status: 'Open'}], milestones: [ { ms_name: '线上签约', ms_plan_date: new Date('2025-09-30'), status: '计划中' } ] }
+                    ]
+                },
+                {
+                    group_id: 5, group_name: '数据中台群', plan_start: new Date('2025-01-10'), plan_end: new Date('2025-12-31'), group_risk: 'medium',
+                    projects: [
+                        { project_id: 501, manager: '陈一', project_name: '数据湖', percent_complete: 30, risk_level: 'medium', key_flag: true, budget_planned: 500, budget_spent: 150, issues: [{ status: 'Open' }], milestones: [ { ms_name: 'ETL管道开发', ms_plan_date: new Date('2025-05-20'), status: '已完成' } ] },
+                        { project_id: 502, manager: '卫二', project_name: '数据仓库', percent_complete: 25, risk_level: 'low', key_flag: true, budget_planned: 450, budget_spent: 110, issues: [], milestones: [ { ms_name: '主数据管理', ms_plan_date: new Date('2025-10-10'), status: '计划中' } ] }
+                    ]
+                },
+                {
+                    group_id: 6, group_name: '全渠道群', plan_start: new Date('2025-03-01'), plan_end: new Date('2025-09-30'), group_risk: 'low',
+                    projects: [
+                        { project_id: 601, manager: '蒋三', project_name: '手机银行', percent_complete: 45, risk_level: 'low', key_flag: true, budget_planned: 160, budget_spent: 70, issues: [], milestones: [ { ms_name: '体验优化V2', ms_plan_date: new Date('2025-06-10'), status: '已完成' } ] },
+                        { project_id: 602, manager: '沈四', project_name: '网上银行', percent_complete: 50, risk_level: 'low', key_flag: true, budget_planned: 140, budget_spent: 65, issues: [], milestones: [ { ms_name: '统一认证', ms_plan_date: new Date('2025-08-30'), status: '计划中' } ] }
+                    ]
+                },
+                {
+                    group_id: 7, group_name: '移动金融群', plan_start: new Date('2025-05-01'), plan_end: new Date('2025-12-15'), group_risk: 'low',
+                    projects: [
+                        { project_id: 701, manager: '韩五', project_name: 'App 5.0', percent_complete: 15, risk_level: 'low', key_flag: true, budget_planned: 220, budget_spent: 40, issues: [], milestones: [ { ms_name: '新UI/UX', ms_plan_date: new Date('2025-08-01'), status: '计划中' } ] },
+                        { project_id: 702, manager: '杨六', project_name: '小程序', percent_complete: 20, risk_level: 'low', key_flag: true, budget_planned: 100, budget_spent: 25, issues: [], milestones: [ { ms_name: '性能优化', ms_plan_date: new Date('2025-10-15'), status: '计划中' } ] }
+                    ]
+                },
+                {
+                    group_id: 8, group_name: '统一支付群', plan_start: new Date('2025-02-15'), plan_end: new Date('2025-09-15'), group_risk: 'high',
+                    projects: [
+                        { project_id: 801, manager: '朱七', project_name: '支付网关', percent_complete: 38, risk_level: 'high', key_flag: true, budget_planned: 180, budget_spent: 95, issues: [{status:'Open'}, {status:'Open'}], milestones: [ { ms_name: '聚合支付', ms_plan_date: new Date('2025-05-25'), status: '延迟' } ] },
+                        { project_id: 802, manager: '秦八', project_name: '清算对账', percent_complete: 35, risk_level: 'medium', key_flag: true, budget_planned: 150, budget_spent: 70, issues: [{status:'Open'}], milestones: [ { ms_name: '性能压测', ms_plan_date: new Date('2025-08-10'), status: '计划中' } ] }
+                    ]
+                },
+                {
+                    group_id: 9, group_name: '监管报送群', plan_start: new Date('2025-01-05'), plan_end: new Date('2025-07-31'), group_risk: 'low',
+                    projects: [
+                        { project_id: 901, manager: '尤九', project_name: 'EAST报送', percent_complete: 85, risk_level: 'low', key_flag: true, budget_planned: 100, budget_spent: 80, issues: [], milestones: [ { ms_name: '数据质量校验', ms_plan_date: new Date('2025-04-30'), status: '已完成' } ] },
+                        { project_id: 902, manager: '许十', project_name: '人行征信', percent_complete: 70, risk_level: 'low', key_flag: true, budget_planned: 120, budget_spent: 85, issues: [], milestones: [ { ms_name: '新规适配', ms_plan_date: new Date('2025-06-30'), status: '计划中' } ] }
+                    ]
+                },
+                {
+                    group_id: 10, group_name: '智能运维群', plan_start: new Date('2025-04-10'), plan_end: new Date('2025-11-28'), group_risk: 'medium',
+                    projects: [
+                        { project_id: 1001, manager: '何一', project_name: 'AIOps平台', percent_complete: 20, risk_level: 'medium', key_flag: true, budget_planned: 300, budget_spent: 60, issues: [{status:'Open'}], milestones: [ { ms_name: '日志分析', ms_plan_date: new Date('2025-08-01'), status: '计划中' } ] },
+                        { project_id: 1002, manager: '吕二', project_name: 'CMDB', percent_complete: 25, risk_level: 'low', key_flag: true, budget_planned: 250, budget_spent: 55, issues: [], milestones: [ { ms_name: '根因定位', ms_plan_date: new Date('2025-11-20'), status: '计划中' } ] }
+                    ]
+                },
+                {
+                    group_id: 11, group_name: '信息安全群', plan_start: new Date('2025-03-20'), plan_end: new Date('2025-11-20'), group_risk: 'low',
+                    projects: [
+                        { project_id: 1101, manager: '施三', project_name: '零信任网络', percent_complete: 33, risk_level: 'low', key_flag: true, budget_planned: 190, budget_spent: 65, issues: [], milestones: [ { ms_name: '堡垒机升级', ms_plan_date: new Date('2025-06-10'), status: '已完成' } ] },
+                        { project_id: 1102, manager: '张四', project_name: '数据脱敏', percent_complete: 28, risk_level: 'low', key_flag: true, budget_planned: 170, budget_spent: 50, issues: [], milestones: [ { ms_name: '攻防演练', ms_plan_date: new Date('2025-09-25'), status: '计划中' } ] }
+                    ]
+                },
+                {
+                    group_id: 12, group_name: '基础架构群', plan_start: new Date('2025-02-01'), plan_end: new Date('2025-12-31'), group_risk: 'low',
+                    projects: [
+                        { project_id: 1201, manager: '孔五', project_name: '私有云', percent_complete: 48, risk_level: 'low', key_flag: true, budget_planned: 400, budget_spent: 180, issues: [], milestones: [ { ms_name: 'K8s集群升级', ms_plan_date: new Date('2025-05-18'), status: '已完成' } ] },
+                        { project_id: 1202, manager: '曹六', project_name: '容器化平台', percent_complete: 45, risk_level: 'low', key_flag: true, budget_planned: 350, budget_spent: 150, issues: [], milestones: [ { ms_name: '服务网格Istio', ms_plan_date: new Date('2025-09-01'), status: '计划中' } ] }
+                    ]
+                },
+            ];
+
+            const mapWrapper = document.getElementById('map-wrapper');
+            const warMapContainer = document.getElementById('war-map-container');
+            const timelineHeader = document.getElementById('timeline-header');
+            const drawer = document.getElementById('detail-drawer');
+            const drawerContent = document.getElementById('drawer-content');
+            const closeDrawerBtn = document.getElementById('close-drawer');
+
+            function render(data) {
+                if (!data || data.length === 0) {
+                    console.error("No data to render.");
+                    return;
+                }
+                
+                timelineHeader.innerHTML = MONTHS.map(month => `<div class="flex-1 text-center text-xs text-slate-400">${month}</div>`).join('');
+                
+                warMapContainer.innerHTML = '';
+                data.forEach((group, index) => {
+                    const startPercent = toPercentage(group.plan_start);
+                    const endPercent = toPercentage(group.plan_end);
+                    const groupProgress = group.projects.map(p => p.percent_complete).reduce((a, b) => a + b, 0) / group.projects.length;
+                    
+                    const totalPlanDuration = dateDiffInDays(group.plan_end, group.plan_start) || 1;
+                    const elapsedDuration = dateDiffInDays(TODAY, group.plan_start);
+                    const plannedProgress = Math.min(100, Math.max(0, Math.round((elapsedDuration / totalPlanDuration) * 100)));
+
+                    const riskColorMapping = { low: 'emerald', medium: 'amber', high: 'red' };
+                    const progressColorClass = `bg-${riskColorMapping[group.group_risk]}-500`;
+
+                    const groupHtml = `
+                        <div class="group-row bg-slate-800/30 border border-slate-700/50 rounded-lg p-3 flex items-center space-x-4 cursor-pointer relative" data-group-index="${index}">
+                            <div class="w-1/12 truncate font-bold text-sm pl-2 text-slate-200" title="${group.group_name}">${group.group_name}</div>
+                            
+                            <div class="w-6/12 relative h-6">
+                                <div class="absolute h-full rounded bg-slate-700" style="left:${startPercent}%; right:${100-endPercent}%;">
+                                    <div class="relative h-full ${progressColorClass} rounded" style="width: ${groupProgress}%;"></div>
+                                </div>
+                                <div class="milestones-container absolute w-full h-full top-0 left-0">
+                                    ${group.projects.flatMap(p => p.milestones).map(ms => {
+                                        const msPlanPercent = toPercentage(ms.ms_plan_date);
+                                        if (msPlanPercent < startPercent || msPlanPercent > endPercent) return '';
+                                        let colorClass = 'bg-slate-500'; 
+                                        if (ms.status === '已完成') colorClass = 'bg-emerald-400';
+                                        if (ms.status === '延迟') colorClass = 'bg-red-500';
+                                        return `<div class="milestone-diamond ${colorClass}" style="left: ${msPlanPercent}%;"><div class="milestone-tooltip"><b>${ms.ms_name}</b><br>状态: ${ms.status}<br>计划: ${ms.ms_plan_date.toLocaleDateString('zh-CN')}</div></div>`;
+                                    }).join('')}
+                                </div>
+                            </div>
+
+                            <div class="w-5/12 flex items-center justify-start space-x-2">
+                                ${group.projects.filter(p => p.key_flag).map((p, pIndex) => {
+                                    const openIssues = p.issues.filter(iss => iss.status === 'Open').length;
+                                    const projectRiskColor = riskColorMapping[p.risk_level];
+                                    const budgetExceeded = p.budget_spent > p.budget_planned;
+                                    return `
+                                    <div class="key-project-card bg-slate-900/50 p-2 rounded-md w-36 flex-shrink-0 transition hover:bg-slate-900/80 cursor-pointer relative" data-group-index="${index}" data-project-index="${pIndex}">
+                                        <div class="flex justify-between items-start">
+                                            <p class="text-xs font-semibold truncate flex-1" title="${p.project_name}">${p.project_name}</p>
+                                            ${openIssues > 0 ? `<span class="text-xs bg-red-600 text-white rounded-full px-1.5 py-0.5 ml-1">${openIssues}</span>` : ''}
+                                        </div>
+                                        <div class="flex items-center mt-1.5 space-x-2">
+                                            <div class="relative w-8 h-8">
+                                                <svg class="w-full h-full -rotate-90" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.9155" fill="none" stroke="#334155" stroke-width="3"></circle><circle cx="18" cy="18" r="15.9155" fill="none" class="${p.percent_complete > plannedProgress ? 'stroke-emerald-400' : `stroke-${projectRiskColor}-500`}" stroke-width="3" stroke-dasharray="${p.percent_complete}, 100"></circle></svg>
+                                                <div class="absolute inset-0 flex items-center justify-center text-xs">${p.percent_complete}%</div>
+                                            </div>
+                                            <div class="flex-1 text-right">
+                                                <div class="flex items-center justify-end mb-1"><span class="text-xs mr-1 text-slate-400">风险</span><span class="w-2.5 h-2.5 bg-${projectRiskColor}-500 rounded-full inline-block"></span></div>
+                                                <div class="w-full bg-slate-600 rounded-full h-1.5"><div class="${budgetExceeded ? 'bg-red-500' : 'bg-cyan-500'} h-1.5 rounded-full" style="width: ${Math.min(100, (p.budget_spent / p.budget_planned) * 100)}%"></div></div>
+                                            </div>
+                                        </div>
+                                        <div class="details-tooltip">
+                                            <dl class="details-tooltip-grid">
+                                                <dt>项目:</dt><dd>${p.project_name}</dd>
+                                                <dt>经理:</dt><dd>${p.manager}</dd>
+                                                <dt>风险:</dt><dd class="text-${projectRiskColor}-400 font-bold">${p.risk_level.toUpperCase()}</dd>
+                                                <dt>预算:</dt><dd>${p.budget_spent} / ${p.budget_planned} (千元)</dd>
+                                                <dt>问题:</dt><dd>${openIssues} 未关闭</dd>
+                                            </dl>
+                                        </div>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                            <div class="details-tooltip">
+                                <dl class="details-tooltip-grid">
+                                    <dt>项目群:</dt><dd>${group.group_name}</dd>
+                                    <dt>计划周期:</dt><dd>${group.plan_start.toLocaleDateString('zh-CN')} - ${group.plan_end.toLocaleDateString('zh-CN')}</dd>
+                                    <dt>序时进度:</dt><dd>${plannedProgress}%</dd>
+                                    <dt>实际进度:</dt><dd>${Math.round(groupProgress)}%</dd>
+                                     <dt>整体风险:</dt><dd class="text-${riskColorMapping[group.group_risk]}-400 font-bold">${group.group_risk.toUpperCase()}</dd>
+                                </dl>
+                            </div>
+                        </div>`;
+                    warMapContainer.insertAdjacentHTML('beforeend', groupHtml);
+                });
+
+                const todayPercentage = toPercentage(TODAY);
+                const timelineWidthPercent = (100 / 12) * 6;
+                const leftOffsetPercent = 100 / 12;
+                const dateLinePosition = leftOffsetPercent + (timelineWidthPercent * todayPercentage / 100);
+                
+                document.getElementById('global-date-line-container').innerHTML = `<div class="current-date-line" style="left: calc(${dateLinePosition}% - 0.5rem);"></div>`;
+            }
+
+            // --- Main Execution ---
+            render(mockData);
+
+            closeDrawerBtn.addEventListener('click', () => drawer.classList.add('hidden'));
+            warMapContainer.addEventListener('click', (e) => {
+                const card = e.target.closest('.key-project-card');
+                if (card) {
+                    e.stopPropagation();
+                    const groupIndex = card.dataset.groupIndex;
+                    const projectIndex = card.dataset.projectIndex;
+                    const project = mockData[groupIndex].projects[projectIndex];
+                    drawerContent.innerHTML = `<h3 class="text-xl font-bold mb-4 text-cyan-300">关键项目详情: ${project.project_name}</h3><p class="text-slate-300">[此处应展示该项目的360度详情视图，包括详细时间轴、KPI指标、风险列表、问题列表等。]</p>`;
+                } else if (e.target.closest('.group-row')) {
+                    const groupIndex = e.target.closest('.group-row').dataset.groupIndex;
+                    const group = mockData[groupIndex];
+                     drawerContent.innerHTML = `<h3 class="text-xl font-bold mb-4 text-cyan-300">项目群详情: ${group.group_name}</h3><p class="text-slate-300">[此处应展示该项目群下所有项目的列表表格，包含更详细的字段。]</p>`;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
